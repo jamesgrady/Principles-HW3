@@ -17,25 +17,30 @@ prob1 x = helper (words x)
 			| otherwise = Val (read x :: Int) : helper xs
 		helper [] = []
 			
-prob2    :: PExp -> Int
+prob2 :: PExp -> Int
 prob2 x = helper x []
 	where
-		helper (Val x : xs) stack = helper xs (stack ++ [x])
-		helper _ [] = errorWithoutStackTrace "Bad Input"
-		helper (Plus : xs) stack = helper xs ([solverPlus stack])
-		helper (Mul : xs) stack = helper xs ([solverMul stack])
-		helper (Minus : xs) stack = helper xs ([solverMinus stack])
-		helper (IntDiv : xs) stack = helper xs ([solverIntDiv stack])
-		helper [] stack = solverEnd stack
-		helper _ _ = errorWithoutStackTrace "Bad Input"
-		solverPlus [x , y] = x + y 
-		solverMul [x , y] = x * y
-		solverIntDiv [x , y] = if y == 0 then errorWithoutStackTrace "Cannot divide by zero" else  x `div` y
-		solverMinus [x , y] = x - y
-		solverEnd (x:xs) = x
+		helper (Val x: xs) vals       = helper xs (x:vals)
+		helper (Plus:xs) (r:l:vals)   = helper xs ((l + r):vals)
+		helper (Mul:xs) (r:l:vals)    = helper xs ((l * r):vals)
+		helper (IntDiv:xs) (0:l:vals) = errorWithoutStackTrace "Cannot divide by zero!"
+		helper (IntDiv:xs) (r:l:vals) = helper xs ((l `div` r):vals)
+		helper (Minus:xs) (r:l:vals)  = helper xs ((l - r):vals)
+		helper [] [i]                 = i
+		helper _ _                    = errorWithoutStackTrace "Bad Input"
 
-prob3    :: a
-prob3    = undefined
+
+prob3 :: PExp -> RPNResult
+prob3 x = helper x []
+	where
+		helper (Val x: xs) vals       = helper xs (x:vals)
+		helper (Plus:xs) (r:l:vals)   = helper xs ((l + r):vals)
+		helper (Mul:xs) (r:l:vals)    = helper xs ((l * r):vals)
+		helper (IntDiv:xs) (0:l:vals) = Failure DivByZero
+		helper (IntDiv:xs) (r:l:vals) = helper xs ((l `div` r):vals)
+		helper (Minus:xs) (r:l:vals)  = helper xs ((l - r):vals)
+		helper [] [i]                 = Success i
+		helper _ _                    = Failure BadSyntax
 
 prob4    :: a
 prob4    = undefined
@@ -64,13 +69,26 @@ test_prob2 = hspec $ do
 
 		context "For [Mul]" $ do 
 			it "should return \"Exception: Bad Input\"" $ do
-				prob2 [Mul] `shouldBe` errorWithoutStackTrace "Bad Input"
+				evaluate (prob2 [Mul]) `shouldThrow` anyException
 
 		context "For [Val 4, Val 0, IntDiv]" $ do
 			it "should return \"Cannot divide by zero!\"" $ do
-				prob2 [Val 4, Val 0, IntDiv] `shouldBe` errorWithoutStackTrace "Cannot divide by zero"
+				evaluate (prob2 [Val 4, Val 0, IntDiv]) `shouldThrow` anyException
 
+test_prob3 :: IO()
+test_prob3 = hspec $ do
+	describe "Prob3 from HW3" $ do
+		context "For [Val 5, Val 0, IntDiv]" $ do
+			it "should return Failure DivByZero" $ do
+				prob3 [Val 5, Val 0, IntDiv] `shouldBe` Failure DivByZero
 
+		context "For [IntDiv, Plus, Val 0]" $ do
+			it "should return Failure BadSyntax" $ do
+				prob3 [IntDiv, Plus, Val 0] `shouldBe` Failure BadSyntax
+
+		context "For [Val 5, Val 1, Val 1, Plus, Mul]" $ do 
+			it "should return Success 10" $ do
+				prob3 [Val 5, Val 1, Val 1, Plus, Mul] `shouldBe` Success 10
 
 
 
